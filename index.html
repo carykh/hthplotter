@@ -1,0 +1,1009 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Head-to-Head Average of 5 Calculator</title>
+		<style>
+			body {
+				position: relative;
+				-webkit-touch-callout: none;
+				-webkit-user-select: none;
+				-khtml-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+			}
+			#myCanvas {
+				position: absolute;
+				left: 0;
+				top: 0;
+			}
+			#overlay {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 1280px;
+				height: 720px;
+				display: none;
+			}
+			#overlay #value {
+				width: 200px;
+				height: 50px;
+				background: white;
+				position: absolute;
+				left: 0%;
+				top: 0%;
+				margin-left: 0px;
+				margin-top: 0px;
+			}
+			audio, video {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+      <canvas id="myCanvas" width="1280" height="720"></canvas>
+      <div id="overlay">
+			<input style="font-size:36px;" type="text" id="value"/>
+		</div>
+		<script language="javascript" type="text/javascript">
+
+			var c=document.getElementById("myCanvas");
+      var bgColor = "#E7DFD5";
+			var buttonColor = "#3B6978";
+			var buttonTextColor = "#FFFFFF";
+			var shades = ["rgba(255, 182, 100, 1.0)","rgba(160,160,256,1.0)","rgba(190,190,190,1.0)"];
+			var TXT_COLOR = "#005000";
+			var ctx = c.getContext("2d");
+
+      var cW = myCanvas.width;
+      var cH = myCanvas.height;
+      var tW = (cW-cH-40);
+			var textBoxState = 0;
+
+			var tableX_left = (cW-cH)*0.25;
+      var tableX = (cW-cH)*0.50;
+      var tableX_right = (cW-cH)*0.75;
+
+			var highlight = [-1,-1];
+			var g = {};
+			var DNF_VALUE = 2000000000;
+			var MAX_TIME_VALUE = 8640000;
+			var resetClicks = 0;
+			var resetClicksNeeded = 5;
+
+			var timeLive = [-1,-1];
+			var timeLiveStart = -1;
+			var names = ["Name 1","Name 2"];
+			infoReset();
+
+      c.onmousedown = onClick;
+			c.onmouseup = onRelease;
+			c.onmousemove = onMove;
+			window.addEventListener('keydown',this.onKey,false);
+
+			var times = [[0,0,0,0,0],[0,0,0,0,0]];
+
+			//document.getElementById("close").onclick = closeTextBox;
+      self.setInterval(function(){run()},1000/60);
+
+			function run(){
+        drawTitle();
+        drawCredits();
+				setGridParameters(cW-cH+85,20,cH-105,cH-105);
+				drawGrid(g);
+				if(timeLive[0] >= 0){
+				  updateTimeLive();
+				}
+      }
+      function openTextBox(option){
+				if(timeLive[0] >= 0){
+					endTimeLive();
+				}
+				document.getElementById("overlay").style.display = "block";
+				document.getElementById("overlay").onmousedown = clickedWhileTextBoxOpen;
+				var b = getVisualTextBoundaries(highlight[0],highlight[1]);
+
+				var v = document.getElementById("value");
+				var s = "";
+				if(highlight[1] == 5){
+					s = names[highlight[0]];
+				}else{
+					var t = times[highlight[0]][highlight[1]];
+					if(t >= 1){
+						s = timeToText(t);
+					}
+				}
+				v.value = s;
+				v.style.marginLeft = b["x"]+"px";
+				v.style.marginTop = b["y"]+"px";
+  			v.focus();
+
+				c.onmousedown = null;
+				c.onmouseup = null;
+				c.onmousemove = null;
+				textBoxState = option;
+			}
+			function clickedWhileTextBoxOpen(e){
+				var mX = e.offsetX;
+				var mY = e.offsetY;
+				var b = getVisualTextBoundaries(highlight[0],highlight[1]);
+				if(!(mX >= 0 && mX < b["w"] && mY >= 0 && mY < b["h"])){
+					closeTextBox(true);
+				}
+			}
+			function clickInBounds(mX,mY,b){
+				return (mX >= b["x"] && mX < b["x"]+b["w"]
+				&& mY >= b["y"] && mY < b["y"]+b["h"]);
+			}
+			function rankify(s){
+				var arr = ["1st","2nd","3rd","4th","5th"];
+				return arr[s];
+			}
+      function closeTextBox(updateInfo){
+				var o = document.getElementById("overlay");
+				o.style.display = "none";
+				c.onmousedown = onClick;
+				c.onmouseup = onRelease;
+				c.onmousemove = onMove;
+				if(updateInfo){
+					if(textBoxState == 1){
+						times[highlight[0]][highlight[1]] = textToTime(document.getElementById("value").value);
+					}else{
+						names[highlight[0]] = document.getElementById("value").value;
+					}
+				}
+				textBoxState = 0;
+				highlight = [-1,-1];
+			}
+			function textToTime(s){
+				if(s.toLowerCase().includes("dnf")){
+					return DNF_VALUE;
+				}
+				var time = 0;
+				var colonParts = s.split(":");
+				var CPL = colonParts.length;
+				var hours = (CPL >= 3) ? strToNumber(colonParts[CPL-3],-1) : 0;
+				var minutes = (CPL >= 2) ? strToNumber(colonParts[CPL-2],-1) : 0;
+				time += hours*360000+minutes*6000;
+				s = colonParts[CPL-1];
+
+				s = s.replace(",","."); // sometimes I type a comma instead of a period
+				var periodIndex = s.indexOf(".");
+				if(periodIndex >= 0){
+					var seconds = strToNumber(s.substring(0,periodIndex),-1);
+					time += seconds*100;
+					s = s.substring(periodIndex+1);
+					if(s.length == 1){
+						var decis = strToNumber(s,-1);
+						time += decis*10;
+					}else{
+						var centis = strToNumber(s,2);
+						time += centis*1;
+					}
+				}else{
+					var sec = strToNumber(s,-1);
+					time += sec*100;
+				}
+				if(time > MAX_TIME_VALUE){
+					time = MAX_TIME_VALUE;
+				}
+				return time;
+			}
+
+			function strToNumber(s, digitsToInclude){
+				var resultStr = s.replace(/\D/g,'');
+				if(digitsToInclude >= 1){
+					resultStr = resultStr.substring(0,digitsToInclude);
+				}
+				var result = parseInt(resultStr);
+				if(Number.isNaN(result)){
+					return 0;
+				}else{
+					return result;
+				}
+			}
+
+			function getVisualTextBoundaries(p,t){
+				b = {}
+				b["x"] = 50+260*p;
+				b["y"] = 262+55*t;
+				b["ts"] = 33;
+				b["ty"] = 296+55*t;
+				if(t == 5){
+					b["y"] = 185;
+					b["ts"] = 26;
+					b["ty"] = 217;
+				}
+				b["w"] = 200;
+				b["h"] = 46;
+				return b;
+			}
+
+      function drawTitle(){
+				ctx.fillStyle = bgColor;
+				ctx.fillRect(0,0,cW,cH);
+
+        ctx.fillStyle = "#B0B0B0";
+				var tw = cW-cH-20;
+				ctx.fillRect(10,10,tw,cH-20);
+
+				ctx.fillStyle="#000000";
+				ctx.font = "45px Helvetica";
+				ctx.textAlign = "center";
+				ctx.fillText("Head-to-head ao5 plotter",tableX,60);
+
+				var topButtons = ["Live time (SPACE)","Click x"+(resetClicksNeeded-resetClicks)+" to reset"]
+				for(var p = 0; p < 2; p++){
+					ctx.fillStyle = shades[p];
+					ctx.fillRect(30+260*p,170,240,410);
+					for(var t = 0; t < 6; t++){
+						ctx.fillStyle = "#FFFFFF";
+						if(t == highlight[1] && (p == highlight[0] || highlight[0] == 2)){
+							ctx.fillStyle = "#FF8080";
+						}else if(t != 5 && times[p][t] <= 0){
+							ctx.fillStyle = "#808080";
+						}
+						var b = getVisualTextBoundaries(p,t);
+						ctx.fillRect(b["x"],b["y"],b["w"],b["h"]);
+						ctx.fillStyle = "#000000";
+						ctx.font = b["ts"]+"px Helvetica";
+						var s = (t == 5) ? names[p] : timeToText(times[p][t]);
+						ctx.fillText(s,b["x"]+b["w"]/2,b["ty"]);
+					}
+					ctx.font = "33px Helvetica";
+					ctx.fillStyle = "#000000";
+					ctx.fillText(" = "+getAverageString(p),150+260*p,566);
+
+					ctx.font = "26px Helvetica";
+					ctx.fillStyle = "#000000";
+					ctx.fillRect(30+260*p,90,240,60);
+					ctx.fillStyle = "#FFFFFF";
+					ctx.fillText(topButtons[p],150+260*p,129);
+				}
+				var firstUnfilled = getFirstUnfilledTime(true);
+				var fillColor = "rgba(190,190,190,1.0)";
+				var reading = [];
+				if(firstUnfilled[0] == -1 && firstUnfilled[0] == -1){
+					var diff = getAverage(0)-getAverage(1);
+					if(Math.abs(diff) < 0.001){
+						fillColor = shades[2];
+						reading = ["Both players tied."];
+					}else if(diff < 0){
+						fillColor = shades[0];
+						reading = [names[0]+" won!"];
+					}else{
+						fillColor = shades[1];
+						reading = [names[1]+" won!"];
+					}
+				}else{
+					if(firstUnfilled[0] == 0){
+						fillColor = shades[0];
+						reading = getReading(0, firstUnfilled[1]);
+					}else{
+						fillColor = shades[1];
+						reading = getReading(1, firstUnfilled[1]);
+					}
+				}
+				ctx.fillStyle = fillColor;
+				ctx.fillRect(30,600,500,90);
+				ctx.fillStyle = "#000000";
+				ctx.font = "20px Helvetica";
+				for(var i = 0; i < reading.length; i++){
+					ctx.fillText(reading[i],280,620+20*i);
+				}
+			}
+
+			function getReading(p, timeC){
+				if(timeC == 4){
+					var BPA = getPossibleAverage(p,0);
+					var WPA = getPossibleAverage(p,1);
+					var lines = ["Hello, "+names[p]+". It's time for your final solve!"];
+					var tips = getFinalRoundTips(ctx, g, p);
+					for(var i = 0; i < tips.length; i++){
+						lines.push(tips[i]);
+					}
+					lines.push("Get BPA of "+timeToText(BPA[0])+" with a single of "+timeToText(BPA[1])+".");
+					lines.push("Get WPA of "+timeToText(WPA[0])+" with a single of "+timeToText(WPA[1])+".");
+					if(p == 0){
+						var opp_BPA = getPossibleAverage(1,0);
+						lines.push("("+names[1]+"'s BPA is "+timeToText(opp_BPA[0])+", if they get a "+timeToText(opp_BPA[1])+").");
+					}
+					return lines;
+				}else if(timeC == 3){
+					var lines = ["Hello, "+names[p]+". It's time for your 4th solve!"];
+					if(p == 0){
+						lines.push("Good luck!");
+					}else{
+						var BPA = getPossibleAverage(0,0);
+						const sorted1 = [...times[1].slice(0, 3)].sort(function(a,b){return a-b});
+						var neededSum = BPA[0]*3-2;
+						var neededSingle = neededSum-sorted1[1]-sorted1[2];
+						lines.push(names[0]+" has a BPA of "+timeToText(BPA[0])+".");
+						if(neededSingle >= 1 && neededSingle >= sorted1[0]){
+							lines.push("Guarantee victory early with a "+timeToText(neededSingle)+".");
+						}else{
+							lines.push("You can't guarantee victory on 4th solve.");
+						}
+					}
+					return lines;
+				}else{
+					return ["Hello, "+names[p]+"."," It's time for your "+rankify(timeC)+" solve.","Good luck!"];
+				}
+			}
+
+			function getAverageString(p){
+				for(var t = 0; t < 5; t++){
+					if(times[p][t] == 0){
+						return "???";
+					}
+				}
+				return timeToText(getAverage(p));
+			}
+			function getAverage(p){
+				const sorted = [...times[p]].sort(function(a,b){return a-b});
+				return Math.round((sorted[1]+sorted[2]+sorted[3])/3);
+			}
+			function getPossibleAverage(p, type){
+				const sorted = [...times[p].slice(0, 4)].sort(function(a,b){return a-b});
+				return [Math.round((sorted[type]+sorted[type+1]+sorted[type+2])/3), sorted[type*3]];
+			}
+
+			function getUnit(s){
+				var units = [1,2,5,10,20,50,100,200,500,1000,2000,3000,6000,12000,30000,60000,120000,180000,360000,720000,1080000,2160000,4320000,8640000,DNF_VALUE];
+				var u = 0;
+				while(units[u] < s/9){
+					u++;
+				}
+				return units[u];
+			}
+
+			/*function getExtremeNoDNF(arr, sign, baseline){
+				var record = 0;
+				if(sign == 1){
+					record = -DNF_VALUE;
+				}else{
+					record = DNF_VALUE;
+				}
+				if(baseline >= 0){
+					record = baseline;
+				}
+				for(var a = 0; a < arr.length; a++){
+					if(arr[a] < DNF_VALUE && arr[a]*sign > record*sign){
+						record = arr[a];
+					}
+				}
+				return record;
+			}*/
+
+			function drawRotatedText(txt,x,y,r,col,size,align,txtCol,ctx){
+				ctx.save();
+				ctx.translate(x, y);
+				ctx.rotate(r);
+				if(col.length >= 1){
+					ctx.fillStyle = col;
+					ctx.fillRect(-5,-24,300,30);
+				}
+				ctx.font = size+"px Helvetica";
+				ctx.fillStyle = txtCol;
+				ctx.textAlign = align;
+				ctx.fillText(txt, 0, 0);
+				ctx.restore();
+			}
+
+			function addToViewingWindow(x,y,g){
+				if(x != DNF_VALUE){
+					g["min0"] = Math.min(g["min0"],x);
+					g["max0"] = Math.max(g["max0"],x);
+				}
+				if(y != DNF_VALUE){
+					g["min1"] = Math.min(g["min1"],y);
+					g["max1"] = Math.max(g["max1"],y);
+				}
+				g["viewcount"] += 1;
+			}
+			function setGridParameters(x, y, w, h){
+				// I decided to include (0,0) in the viewing range of the graph no matter what, because it adds context.
+				g["min0"] = DNF_VALUE;
+				g["max0"] = -DNF_VALUE;
+				g["min1"] = DNF_VALUE;
+				g["max1"] = -DNF_VALUE;
+				g["viewcount"] = 0;
+				for(var t = 0; t < 5; t++){
+					if(times[0][t] == 0 && times[1][t] == 0){ // It's a non-recorded point.
+					}else{
+						addToViewingWindow(times[0][t],times[1][t],g);
+					}
+				}
+				// If there's zero or one visible points on the graph, include the (0,0) origin for context.
+				if(g["viewcount"] <= 3){ // Edit: I changed it to 3 to more often add visual context.
+					addToViewingWindow(0,0,g);
+				}
+				// Always include some point that lies on the y = x identity line, so that we can see it (as a dotted line) for context.
+				var pure_max = Math.max(g["max0"],g["max1"]);
+				var pure_min = Math.min(g["min0"],g["min1"]);
+				var pure_mid = (pure_max+pure_min)/2;
+				addToViewingWindow(pure_mid,pure_mid,g);
+
+				g["mid0"] = (g["min0"]+g["max0"])/2.0;
+				g["mid1"] = (g["min1"]+g["max1"])/2.0;
+
+				g["x"] = x;
+				g["y"] = y;
+				g["w"] = w;
+				g["h"] = h;
+				g["span"] = Math.max(1.0,(g["max0"]-g["min0"])*1.39,(g["max1"]-g["min1"])*1.39);
+				g["xmin"] = g["mid0"]-g["span"]/2;
+				g["xmax"] = g["mid0"]+g["span"]/2;
+				g["ymin"] = g["mid1"]-g["span"]/2;
+				g["ymax"] = g["mid1"]+g["span"]/2;
+				g["unit"] = getUnit(g["span"]);
+				g["xlmin"] = Math.max(0,Math.ceil(g["xmin"]/g["unit"])*g["unit"]);
+				g["xlmax"] = Math.max(0,Math.floor(g["xmax"]/g["unit"])*g["unit"]);
+				g["ylmin"] = Math.max(0,Math.ceil(g["ymin"]/g["unit"])*g["unit"]);
+				g["ylmax"] = Math.max(0,Math.floor(g["ymax"]/g["unit"])*g["unit"]);
+			}
+			function drawGrid(g){
+				ctx.fillStyle = "#FFFFFF";
+				ctx.fillRect(g["x"], g["y"], g["w"], g["h"]);
+				drawRotatedText("-> "+names[0]+"'s times ->",g["x"]+250,g["y"]+g["h"]+75,0,shades[0],24,"left","#000000",ctx);
+				drawRotatedText("-> "+names[1]+"'s times ->",g["x"]-70,g["y"]+g["h"]-170,-Math.PI/2,shades[1],24,"left","#000000",ctx)
+
+				drawRegions(ctx, g,0,-1); // No weird handicap stuff
+				drawVerts(ctx, g);
+				drawHoris(ctx, g);
+				drawOriginBorder(ctx,g);
+
+				drawDots(ctx, g);
+				drawIdentity(ctx,g);
+			}
+
+			function drawVerts(ctx, g){
+				for(var xLine = g["xlmin"]; xLine <= g["xlmax"]; xLine+=g["unit"]){
+					ctx.fillStyle = "rgba(0,0,0,0.3)";
+					var appX = xToS(xLine,g);
+					ctx.fillRect(appX-1, g["y"], 2, g["h"]);
+					ctx.textAlign = "left";
+					drawRotatedText(timeToText(xLine),appX-8,g["y"]+g["h"]+14,Math.PI*0.25,"",24,"left","#000000",ctx);
+				}
+			}
+
+			function drawHoris(ctx, g){
+				for(var yLine = g["ylmin"]; yLine <= g["ylmax"]; yLine+=g["unit"]){
+					ctx.fillStyle = "rgba(0,0,0,0.3)";
+					var appY = yToS(yLine,g);
+					ctx.fillRect(g["x"],appY-1,g["w"],2);
+
+					ctx.fillStyle = "#000000";
+					ctx.textAlign = "right";
+					ctx.font = "24px Helvetica";
+					ctx.fillText(timeToText(yLine),g["x"]-6,appY+7);
+				}
+			}
+
+			function drawOriginBorder(ctx,g){
+				ctx.fillStyle = "rgba(0,0,0,0.4)";
+			  var xEdge = Math.max(xToS(0,g),g["x"]);
+			  ctx.fillRect(g["x"], g["y"], xEdge-g["x"], g["h"]);
+			  var yEdge = Math.min(yToS(0,g),g["y"]+g["h"]);
+			  ctx.fillRect(xEdge, yEdge, g["x"]+g["w"]-xEdge, g["y"]+g["h"]-yEdge);
+			}
+			function drawRegions(ctx, g, safetyHandicap, safetyColor){
+				const sorted0 = [...times[0].slice(0, 4)].sort(function(a,b){return a-b});
+				const sorted1_pre_handicap = [...times[1].slice(0, 4)].sort(function(a,b){return a-b});
+				const sorted1 = sorted1_pre_handicap.map(element => element + safetyHandicap);
+
+				var edgeThresholds = [[0,0],[0,0]];
+				for(var a = 0; a < 2; a++){
+					edgeThresholds[0][a] = sumArray(sorted1,a,3+a)-sorted0[1]-sorted0[2];
+					edgeThresholds[1][a] = sumArray(sorted0,a,3+a)-sorted1[1]-sorted1[2];
+				}
+				// apparent X-coordinates and apparent Y-coordinates, as they appear on the screen.
+				var ax = [g["x"],xToS(sorted0[0],g),xToS(edgeThresholds[0][0],g),xToS(edgeThresholds[0][1],g),xToS(sorted0[3],g),g["x"]+g["w"]];
+				var ay = [g["y"]+g["h"],yToS(sorted1[0],g),yToS(edgeThresholds[1][0],g),yToS(edgeThresholds[1][1],g),yToS(sorted1[3],g),g["y"]];
+
+
+				var cornerColorString = ""; //The colors of the four corners of the graph
+				for(var x = 0; x < 2; x++){
+					for(var y = 0; y < 2; y++){
+						cornerColorString += sumArray(sorted0,x,3+x) < sumArray(sorted1,y,3+y) ? "A" : "B";
+					}
+				}
+				var SOMEONE_DOUBLE_DNFED = true;
+				if(sorted0[2] == DNF_VALUE && sorted1[2] == DNF_VALUE){
+					cornerColorString = "CCCC";
+				}else if(sorted0[2] == DNF_VALUE){
+					cornerColorString = "BBBB";
+				}else if(sorted1[2] == DNF_VALUE){
+					cornerColorString = "AAAA";
+				}else{
+					SOMEONE_DOUBLE_DNFED = false;
+				}
+				if(SOMEONE_DOUBLE_DNFED || (sorted0[0] >= 1 && sorted1[0] >= 1)){ // We're only going to draw regions if both players' first 4 solves are non-zero.
+					var shapes = {
+						"AAAA": [[[0,0],[0,5],[5,5],[5,0]],
+						[[0,0]],
+					  [[0,0]]],
+
+						"BBBB": [[[0,0]],
+						[[0,0],[0,5],[5,5],[5,0]],
+						[[0,0]]],
+
+						"CCCC": [[[0,0]],
+						[[0,0]],
+						[[0,0],[0,5],[5,5],[5,0]]],
+
+						"AABB": [[[2,1],[3,4],[3,5],[0,5],[0,0],[2,0]],
+						[[2,1],[3,4],[3,5],[5,5],[5,0],[2,0]],
+						[[0,0]]],
+
+						"BABA": [[[1,2],[4,3],[5,3],[5,5],[0,5],[0,2]],
+						[[1,2],[4,3],[5,3],[5,0],[0,0],[0,2]],
+						[[0,0]]],
+
+						"AABA": [[[2,1],[4,3],[5,3],[5,5],[0,5],[0,0],[2,0]],
+						[[2,1],[4,3],[5,3],[5,0],[2,0]],
+						[[0,0]]],
+
+						"BABB": [
+						[[1,2],[3,4],[3,5],[0,5],[0,2]],
+						[[1,2],[3,4],[3,5],[5,5],[5,0],[0,0],[0,2]],
+						[[0,0]]],
+					}
+					for(var p = 0; p < 2; p++){
+						if(p == safetyColor || safetyColor == -1){
+							var path = shapes[cornerColorString][p];
+							ctx.fillStyle = shades[p];
+							ctx.beginPath();
+							ctx.moveTo(ax[path[0][0]],ay[path[0][1]]);
+							for(var i = 1; i < path.length; i++){
+								ctx.lineTo(ax[path[i][0]],ay[path[i][1]]);
+							}
+							ctx.closePath();
+							ctx.fill();
+						}
+					}
+
+					var b = sorted0[1]+sorted0[2]-(sorted1[1]+sorted1[2]);
+					//var mod = negMod(-sorted0[1]-sorted0[2]+sorted0[0]+2,3);
+
+
+					var x_min_pre_shift = Math.max(sorted0[0],sorted1[0]-b);
+					var x_min_shift = (x_min_pre_shift + sorted0[1] + sorted0[2]+1)%3;
+					var x_min = x_min_pre_shift-x_min_shift;
+
+					var x_max_pre_shift = Math.min(sorted0[3],sorted1[3]-b);
+					var x_max_shift = (x_max_pre_shift + sorted0[1] + sorted0[2]+1)%3;
+					var x_max = x_max_pre_shift-x_max_shift;
+					ctx.fillStyle = "#FFFFFF";
+					if(x_max-x_min < 1200){ // If the tie squares are numerous and small, don't draw them.
+						for(var x = x_min; x <= x_max; x += 3){
+							drawTieRect(x,g,b,0,ctx);
+						}
+					}
+					//if(sorted0[0] < sorted1[0]-b){
+					//	drawTieRect(x_min,g,b,4,ctx);
+					//}else{
+					var touchesLeft = (x_min-0.001 <= sorted0[0]);
+					var touchesRight = (x_max+2.001 >= sorted0[3]);
+					var touchesBottom = (x_min+b-0.001 <= sorted1[0]);
+					var touchesTop = (x_max+b+2.001 >= sorted1[3]);
+
+					if(x_min < x_max+0.001){
+						touchesLeft ? drawTieRect(x_min,g,b,[-1,0],ctx) : 0;
+						touchesRight ? drawTieRect(x_max,g,b,[1,0],ctx) : 0;
+						touchesBottom ? drawTieRect(x_min,g,b,[0,-1],ctx) : 0;
+						touchesTop ? drawTieRect(x_max,g,b,[0,1],ctx) : 0;
+						if(Math.abs(x_min-x_max) < 0.001){
+							(touchesLeft && touchesTop) ? drawTieRect(x_min,g,b,[-1,1],ctx) : 0;
+							(touchesRight && touchesBottom) ? drawTieRect(x_max,g,b,[1,-1],ctx) : 0;
+						}
+						(touchesLeft && touchesBottom) ? drawTieRect(x_min,g,b,[-1,-1],ctx) : 0;
+						(touchesRight && touchesTop) ? drawTieRect(x_max,g,b,[1,1],ctx) : 0;
+					}
+
+					/*if(touchesLeft && touchesTop){
+						if(Math.abs(x_min-x_max) < 0.001){
+							drawTieRect(x_min,g,b,[-1,1],ctx);
+						}else if(x_min < x_max){
+							drawTieRect(x_min,g,b,[-1,0],ctx);
+							drawTieRect(x_max,g,b,[0,1],ctx);
+						}
+					}else if(touchesLeft && touchesBottom){
+						if(Math.abs(x_min-x_max) < 0.001){
+							drawTieRect(x_min,g,b,[-1,-1],ctx);
+						}else if(x_min < x_max){
+							drawTieRect(x_min,g,b,[-1,0],ctx);
+							drawTieRect(x_min,g,b,[0,-1],ctx);
+						}
+					}*/
+					/*touchesLeft ? drawTieRect(x_min,g,b,[-1,0],ctx) : 0;
+					touchesRight ? drawTieRect(x_max,g,b,[1,0],ctx) : 0;
+					touchesBottom ? drawTieRect(x_min,g,b,[0,-1],ctx) : 0;
+					touchesTop ? drawTieRect(x_max,g,b,[0,1],ctx) : 0;
+					(touchesLeft && touchesBottom) ? drawTieRect(x_min,g,b,[-1,-1],ctx) : 0;
+					(touchesRight && touchesTop) ? drawTieRect(x_max,g,b,[1,1],ctx) : 0;
+					*/
+
+					//touchesLeft && touchesBottom ? drawTieRect(x_min,g,b,[-1,-1],ctx) : 0;
+
+					/*if(sorted0[3] > sorted1[3]-b){
+						drawTieRect()
+					}*/
+					//if(sorted[])
+
+
+					/*var di_x1 = edgeThresholds[0][0];
+					var di_y1 = edgeThresholds[1][0];
+					var di_x2 = edgeThresholds[0][1];
+					var di_y2 = edgeThresholds[1][1];
+
+					var boundary_x1 = Math.max(sorted0[0]+sorted0[1]+sorted0[2],sorted1[0]*3);
+					var block_mod = (+1)%3;
+					var block_start = di_x1-block_mod;
+					console.log(di_x1+",    "+block_mod);*/
+				}
+			}
+			function getFinalRoundTips(ctx, g, p){
+				var tips = new Array(0);
+				const sorted0 = [...times[0].slice(0, 4)].sort(function(a,b){return a-b});
+				const sorted1 = [...times[1].slice(0, 4)].sort(function(a,b){return a-b});
+				var b = sorted0[1]+sorted0[2]-(sorted1[1]+sorted1[2]);
+
+				var x_min_pre_shift = Math.max(sorted0[0],sorted1[0]-b);
+				var x_min_shift = (x_min_pre_shift + sorted0[1] + sorted0[2]+1)%3;
+				var x_min = x_min_pre_shift-x_min_shift;
+
+				var x_max_pre_shift = Math.min(sorted0[3],sorted1[3]-b);
+				var x_max_shift = (x_max_pre_shift + sorted0[1] + sorted0[2]+1)%3;
+				var x_max = x_max_pre_shift-x_max_shift;
+				var touchesLeft = (x_min-0.001 <= sorted0[0]);
+				var touchesRight = (x_max+2.001 >= sorted0[3]);
+				var touchesBottom = (x_min+b-0.001 <= sorted1[0]);
+				var touchesTop = (x_max+b+2.001 >= sorted1[3]);
+
+				if(x_min < x_max+0.001){
+					if(p == 0){
+						if(touchesBottom){
+							if(!touchesLeft){
+								tips.push("Get "+timeToText(x_min-1)+" to guarantee win.");
+							}else{
+								tips.push("Get "+timeToText(x_min+2)+" to guarantee win-or-tie.");
+							}
+						}
+						if(touchesTop){
+							if(!touchesRight){
+								tips.push("Get "+timeToText(x_max+2)+" to avoid guaranteed loss.");
+							}else{
+								tips.push("Get "+timeToText(x_max-1)+" to avoid guaranteed loss-or-tie.");
+							}
+						}
+					}else{
+						var p0avg = getAverage(0);
+						var BPA = getPossibleAverage(1,0);
+						var WPA = getPossibleAverage(1,1);
+						if(BPA[0] > p0avg){
+							tips.push(names[1]+" is guaranteed to lose.");
+						}else if(WPA[0] < p0avg){
+							tips.push(names[1]+" is guaranteed to win.");
+						}else{
+							var neededSum = p0avg*3+1;
+							var neededSingle = neededSum-sorted1[1]-sorted1[2];
+							var canWin = !(touchesLeft && touchesBottom);
+							if(canWin){
+								tips.push("Get a single of "+timeToText(neededSingle-3)+" to win, "+timeToText(neededSingle)+" to tie.");
+							}else{
+								tips.push("Get a single of "+timeToText(neededSingle)+" to tie.");
+							}
+						}
+					}
+				}else{
+					if(p == 0){
+						if(getPossibleAverage(0,0) < getPossibleAverage(1,0)){
+							tips.push(names[0]+" is guaranteed to win!");
+						}else{
+							tips.push(names[1]+" is guaranteed to win!");
+						}
+					}else{
+						if(getAverage(0) < getPossibleAverage(1,0)){
+							tips.push(names[0]+" is guaranteed to win!");
+						}else{
+							tips.push(names[1]+" is guaranteed to win!");
+						}
+					}
+				}
+				return tips;
+			}
+
+			function drawTieRect(x, g, b, type, ctx){
+				var appX1 = (type[0] == -1) ? g["x"] : xToS(x-0.5,g);
+				var appX2 = (type[0] == 1) ? g["x"]+g["w"] : xToS(x+2.5,g);
+				var appY1 = (type[1] == 1) ? g["y"] : yToS(x+b+2.5,g);
+				var appY2 = (type[1] == -1) ? g["y"]+g["h"] : yToS(x+b-0.5,g);
+				ctx.fillRect(appX1,appY1,appX2-appX1,appY2-appY1);
+			}
+			function negMod(n,p){
+				if(n > 0){
+					return n%p;
+				}else{
+					return (n+Math.ceil(-n/p)*p+p)%p;
+				}
+			}
+			function drawDots(ctx, g){
+				for(var i = 0; i < 5; i++){
+					if(times[0][i] != 0 || times[1][i] != 0){
+						var appX = xToSPoint(times[0][i],g);
+						var appY = yToSPoint(times[1][i],g);
+						var col = ctx.strokeStyle = ctx.fillStyle = TXT_COLOR;
+						if(i == highlight[1] || highlight[1] == 5){
+							var col = ctx.strokeStyle = ctx.fillStyle = "#FF0000";
+							if(highlight[0] == 0){
+								var baseX = Math.max(g["x"],xToS(0,g));
+								ctx.fillRect(baseX,appY-2,appX-baseX,4);
+							}else if(highlight[0] == 1){
+								var baseY = Math.min(g["y"]+g["h"],yToS(0,g));
+								ctx.fillRect(appX-2,appY,4,baseY-appY);
+							}
+						}
+						if(i == 4){
+							var r = 15;
+							ctx.lineWidth = 4;
+							ctx.beginPath();
+							ctx.moveTo(appX-r,appY-r);
+							ctx.lineTo(appX+r,appY+r);
+							ctx.stroke();
+							ctx.beginPath();
+							ctx.moveTo(appX-r,appY+r);
+							ctx.lineTo(appX+r,appY-r);
+							ctx.stroke();
+						}else{
+							ctx.beginPath();
+							ctx.ellipse(appX, appY, 6, 6, 0, 0, 2 * Math.PI);
+							ctx.fill();
+						}
+
+						ctx.textAlign = "center";
+						ctx.font = "30px Helvetica";
+						var textShiftX = appX < g["x"]+g["w"] ? 0 : -12;
+						var textShiftY = appY >= g["y"] ? -12 : 32;
+						ctx.fillText("#"+(i+1),appX+textShiftX,appY+textShiftY);
+						var coorTextShiftY = (i == 4) ? 30 : 20;
+						drawRotatedText(timeToText(times[0][i])+", "+timeToText(times[1][i]),appX,appY+coorTextShiftY,0,"",16,"center",col,ctx);
+					}
+				}
+			}
+
+			function drawDottedLine(ctx, x1, y1, x2, y2, m){
+				var pieceCount = Math.round(dist(x1,y1,x2,y2)/m);
+				ctx.lineWidth = 2;
+				ctx.strokeStyle = "#404040";
+				for(var p = 0; p < pieceCount; p++){
+					var startFrac = p/(pieceCount-0.5);
+					var startX = x1+(x2-x1)*startFrac;
+					var startY = y1+(y2-y1)*startFrac;
+					var endFrac = (p+0.5)/(pieceCount-0.5);
+					var endX = x1+(x2-x1)*endFrac;
+					var endY = y1+(y2-y1)*endFrac;
+					ctx.beginPath();
+					ctx.moveTo(startX,startY);
+					ctx.lineTo(endX,endY);
+					ctx.stroke();
+				}
+			}
+			function drawIdentity(ctx, g){
+				if(g["xmin"] < g["ymin"]){
+					var s = g["ymin"];
+					var e = g["xmax"];
+				}else{
+					var s = g["xmin"];
+					var e = g["ymax"];
+				}
+				drawDottedLine(ctx,xToS(s,g),yToS(s,g),xToS(e,g),yToS(e,g),25);
+			}
+
+			function sumArray(a, s, e){
+				var sum = 0;
+				for(var i = s; i < e; i++){
+					sum += a[i];
+				}
+				return sum;
+			}
+			function xToSPoint(x,g){
+				if(x == DNF_VALUE){
+					return g["x"]+g["w"]+10;
+				}else{
+					return xToS(x,g);
+				}
+			}
+			function yToSPoint(y,g){
+				if(y == DNF_VALUE){
+					return g["y"]-10;
+				}else{
+					return yToS(y,g);
+				}
+			}
+			function xToS(x,g){
+				return g["x"]+g["w"]*(x-g["xmin"])/g["span"];
+			}
+			function yToS(y,g){
+				return g["y"]+g["h"]*(1-(y-g["ymin"])/g["span"]);
+			}
+			function sToXCap(sx,g){
+				var fac = (sx-g["x"])/g["w"];
+				return Math.min(Math.max(fac,0),1)*g["span"]+g["xmin"];
+			}
+			function sToYCap(sy,g){
+				var fac = (sy-g["y"])/g["h"];
+				return (1-Math.min(Math.max(fac,0),1))*g["span"]+g["ymin"];
+			}
+			function timeToText(preN){
+				var n = Math.floor(preN);
+				if(n == DNF_VALUE){
+					return "DNF";
+				}
+				var digits = [10,10,10,6,10,6,10,10];
+				var separator = ["","",".","",":","",":","","","","",""];
+				var result = "";
+
+				var digitOn = 0;
+				while(digitOn < 3 || n > 0){
+					result = (n%digits[digitOn])+separator[digitOn]+result;
+					n = Math.floor(n/digits[digitOn]);
+					digitOn += 1;
+				}
+				return result;
+			}
+
+      function sigfig(x) {
+        return Number.parseFloat(x).toPrecision(3);
+      }
+
+      function onClick(e){
+      }
+      function onMove(e){
+				var mX = e.offsetX;
+				var mY = e.offsetY;
+				highlight = [-1,-1];
+				for(var p = 0; p < 2; p++){
+					for(var t = 0; t < 6; t++){
+						if(clickInBounds(mX,mY,getVisualTextBoundaries(p,t))){
+							highlight = [p,t];
+						}
+					}
+				}
+				for(var t = 0; t < 5; t++){
+					var appX = xToSPoint(times[0][t],g);
+					var appY = yToSPoint(times[1][t],g);
+					if(dist(appX,appY,mX,mY) < 30){
+						highlight = [2,t];
+					}
+				}
+      }
+			function onRelease(e){
+				var mX = e.offsetX;
+				var mY = e.offsetY;
+				var resetClicksYesNo = false;
+				for(var p = 0; p < 2; p++){
+					for(var t = 0; t < 6; t++){
+						if(clickInBounds(mX,mY,getVisualTextBoundaries(p,t))){
+							highlight = [p,t];
+							var option = (t == 5) ? 2 : 1;
+							openTextBox(option);
+						}
+					}
+					var x = 30+260*p;
+					if(mX >= x && mX < x+240 && mY >= 90 && mY < 150){
+						if(p == 0){
+							interactTimeLive();
+						}else if(p == 1){
+							resetClicksYesNo = true;
+							resetClicks += 1;
+							if(resetClicks >= resetClicksNeeded){
+								infoReset();
+							}
+						}
+					}
+				}
+				if(!resetClicksYesNo){
+					resetClicks = 0;
+				}
+			}
+			function infoReset(){
+				endTimeLive();
+				times = [[0,0,0,0,0],[0,0,0,0,0]];
+				names = ["Name 1","Name 2"];
+				resetClicks = 0;
+			}
+			function onKey(e) {
+		    if(e.keyCode == 32){ // SPACE
+					interactTimeLive();
+				}else if(e.keyCode == 13){ // ENTER
+					if(textBoxState == 0){
+						if(highlight[0] == -1){
+							highlight = getFirstUnfilledTime(true);
+						}
+						openTextBox(1);
+					}else{
+						closeTextBox(true);
+					}
+				}else if(e.keyCode == 27){ // ESCAPE
+					if(textBoxState >= 1){
+						closeTextBox(false);
+					}
+				}
+				resetClicks = 0;
+			}
+			function interactTimeLive(){
+				if(textBoxState == 0){
+					if(timeLive[0] == -1){
+						startTimeLive();
+					}else{
+						endTimeLive();
+					}
+				}
+			}
+			function startTimeLive(){
+				var choice = [-1,-1];
+				choice = getFirstUnfilledTime(true);
+				if(choice[0] >= 0){
+					timeLive = choice;
+					timeLiveStart = rightNow();
+				}
+			}
+			function updateTimeLive(){
+				if(timeLive[0] >= 0){
+					times[timeLive[0]][timeLive[1]] = Math.round((rightNow()-timeLiveStart)/10);
+				}
+			}
+			function endTimeLive(){
+				if(timeLive[0] >= 0){
+					updateTimeLive();
+					timeLive = [-1,-1];
+				}
+			}
+			function getFirstUnfilledTime(countLiveTime){
+				var player = (highlight[1] == 5) ? highlight[0] : -1;
+				for(var t = 0; t < 5; t++){
+					for(var p = 0; p < 2; p++){
+						if((times[p][t] == 0 && (player == -1 || player == p)) ||
+					(countLiveTime && timeLive[0] == p && timeLive[1] == t)){
+							return [p,t];
+						}
+					}
+				}
+				return [-1,-1];
+			}
+			function dist(x1, y1, x2, y2){
+				var dx = x2-x1;
+				var dy = y2-y1;
+				return Math.sqrt(dx*dx+dy*dy);
+			}
+      function rightNow(){
+				var currentTime = new Date();
+				return currentTime.getTime();
+			}
+      function colorToString(r,g,b){
+				var r1 = Math.floor(r).toString(16);
+				if(r1.length == 1) r1 = "0"+r1;
+				var g1 = Math.floor(g).toString(16);
+				if(g1.length == 1) g1 = "0"+g1;
+				var b1 = Math.floor(b).toString(16);
+				if(b1.length == 1) b1 = "0"+b1;
+				return "#"+r1+g1+b1;
+			}
+		function drawCredits(){
+				ctx.fillStyle = "#000000";
+				ctx.textAlign = "left";
+				ctx.font = "18px Helvetica";
+				var arr = ["","","","Created by Cary Huang (carykh)"]
+				for(var i = 0; i < 4; i++){
+					var tx = cW-cH+10;
+					ctx.fillText(arr[i],tx,655+18*i);
+				}
+			}
+		</script>
+		<noscript>
+			<h3>Head-to-Head Average of 5 Calculator</h3>
+		</noscript>
+	</body>
+</html>
