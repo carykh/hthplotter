@@ -18,6 +18,11 @@
 				left: 0;
 				top: 0;
 			}
+			#faq {
+				position: absolute;
+				left: 0px;
+				top: 720px;
+			}
 			#overlay {
 				position: absolute;
 				left: 0;
@@ -46,8 +51,13 @@
       <div id="overlay">
 			<input style="font-size:36px;" type="text" id="value"/>
 		</div>
+		<p id="faq">
+            <a href="https://htwins.net/hthplotter/faq.html">Frequently asked questions</a>
+            <br>
+            <a href="https://htwins.net">Back to htwins</a>
+            <br>
+        </p>
 		<script language="javascript" type="text/javascript">
-
 			var c=document.getElementById("myCanvas");
       var bgColor = "#E7DFD5";
 			var buttonColor = "#3B6978";
@@ -64,6 +74,7 @@
 			var tableX_left = (cW-cH)*0.25;
       var tableX = (cW-cH)*0.50;
       var tableX_right = (cW-cH)*0.75;
+      var drawTiesOption = true;
 
 			var highlight = [-1,-1];
 			var g = {};
@@ -292,6 +303,12 @@
 				for(var i = 0; i < reading.length; i++){
 					ctx.fillText(reading[i],280,620+20*i);
 				}
+				ctx.fillStyle = drawTiesOption ? "#707070" : "#B0B0B0";
+				ctx.fillRect(cW-cH,660,70,50);
+				ctx.fillStyle = "#FFFFFF";
+				ctx.font = "20px Helvetica";
+			    ctx.fillText("Ties",cW-cH+35,680);
+			    ctx.fillText(drawTiesOption ? "visible" : "hidden",cW-cH+35,703);
 			}
 
 			function getReading(p, timeC){
@@ -563,85 +580,46 @@
 							ctx.fill();
 						}
 					}
+                    if(drawTiesOption){
+                        drawTies(sorted0,sorted1,g,ctx);
+                    }
+				}
+			}
+			function drawTies(sorted0,sorted1,g,ctx){
+			    var b = sorted0[1]+sorted0[2]-(sorted1[1]+sorted1[2]);
 
-					var b = sorted0[1]+sorted0[2]-(sorted1[1]+sorted1[2]);
-					//var mod = negMod(-sorted0[1]-sorted0[2]+sorted0[0]+2,3);
+				var x_min_pre_shift = Math.max(sorted0[0],sorted1[0]-b);
+				var x_min_shift = (x_min_pre_shift + sorted0[1] + sorted0[2]+1)%3;
+				var x_min = x_min_pre_shift-x_min_shift;
 
-
-					var x_min_pre_shift = Math.max(sorted0[0],sorted1[0]-b);
-					var x_min_shift = (x_min_pre_shift + sorted0[1] + sorted0[2]+1)%3;
-					var x_min = x_min_pre_shift-x_min_shift;
-
-					var x_max_pre_shift = Math.min(sorted0[3],sorted1[3]-b);
-					var x_max_shift = (x_max_pre_shift + sorted0[1] + sorted0[2]+1)%3;
-					var x_max = x_max_pre_shift-x_max_shift;
-					ctx.fillStyle = "#FFFFFF";
-					if(x_max-x_min < 1200){ // If the tie squares are numerous and small, don't draw them.
-						for(var x = x_min; x <= x_max; x += 3){
-							drawTieRect(x,g,b,0,ctx);
-						}
+				var x_max_pre_shift = Math.min(sorted0[3],sorted1[3]-b);
+				var x_max_shift = (x_max_pre_shift + sorted0[1] + sorted0[2]+1)%3;
+				var x_max = x_max_pre_shift-x_max_shift;
+				ctx.fillStyle = "#FFFFFF";
+				if(x_max-x_min < 1200){ // If the tie squares are numerous and small, don't draw them.
+					for(var x = x_min; x <= x_max; x += 3){
+						drawTieRect(x,g,b,0,ctx);
 					}
-					//if(sorted0[0] < sorted1[0]-b){
-					//	drawTieRect(x_min,g,b,4,ctx);
-					//}else{
-					var touchesLeft = (x_min-0.001 <= sorted0[0]);
-					var touchesRight = (x_max+2.001 >= sorted0[3]);
-					var touchesBottom = (x_min+b-0.001 <= sorted1[0]);
-					var touchesTop = (x_max+b+2.001 >= sorted1[3]);
+				}
+				//if(sorted0[0] < sorted1[0]-b){
+				//	drawTieRect(x_min,g,b,4,ctx);
+				//}else{
+				var touchesLeft = (x_min-0.001 <= sorted0[0]);
+				var touchesRight = (x_max+2.001 >= sorted0[3]);
+				var touchesBottom = (x_min+b-0.001 <= sorted1[0]);
+				var touchesTop = (x_max+b+2.001 >= sorted1[3]);
 
-					if(x_min < x_max+0.001){
-						touchesLeft ? drawTieRect(x_min,g,b,[-1,0],ctx) : 0;
-						touchesRight ? drawTieRect(x_max,g,b,[1,0],ctx) : 0;
-						touchesBottom ? drawTieRect(x_min,g,b,[0,-1],ctx) : 0;
-						touchesTop ? drawTieRect(x_max,g,b,[0,1],ctx) : 0;
-						if(Math.abs(x_min-x_max) < 0.001){
-							(touchesLeft && touchesTop) ? drawTieRect(x_min,g,b,[-1,1],ctx) : 0;
-							(touchesRight && touchesBottom) ? drawTieRect(x_max,g,b,[1,-1],ctx) : 0;
-						}
-						(touchesLeft && touchesBottom) ? drawTieRect(x_min,g,b,[-1,-1],ctx) : 0;
-						(touchesRight && touchesTop) ? drawTieRect(x_max,g,b,[1,1],ctx) : 0;
-					}
-
-					/*if(touchesLeft && touchesTop){
-						if(Math.abs(x_min-x_max) < 0.001){
-							drawTieRect(x_min,g,b,[-1,1],ctx);
-						}else if(x_min < x_max){
-							drawTieRect(x_min,g,b,[-1,0],ctx);
-							drawTieRect(x_max,g,b,[0,1],ctx);
-						}
-					}else if(touchesLeft && touchesBottom){
-						if(Math.abs(x_min-x_max) < 0.001){
-							drawTieRect(x_min,g,b,[-1,-1],ctx);
-						}else if(x_min < x_max){
-							drawTieRect(x_min,g,b,[-1,0],ctx);
-							drawTieRect(x_min,g,b,[0,-1],ctx);
-						}
-					}*/
-					/*touchesLeft ? drawTieRect(x_min,g,b,[-1,0],ctx) : 0;
+				if(x_min < x_max+0.001){
+					touchesLeft ? drawTieRect(x_min,g,b,[-1,0],ctx) : 0;
 					touchesRight ? drawTieRect(x_max,g,b,[1,0],ctx) : 0;
 					touchesBottom ? drawTieRect(x_min,g,b,[0,-1],ctx) : 0;
 					touchesTop ? drawTieRect(x_max,g,b,[0,1],ctx) : 0;
+					if(Math.abs(x_min-x_max) < 0.001){
+						(touchesLeft && touchesTop) ? drawTieRect(x_min,g,b,[-1,1],ctx) : 0;
+						(touchesRight && touchesBottom) ? drawTieRect(x_max,g,b,[1,-1],ctx) : 0;
+					}
 					(touchesLeft && touchesBottom) ? drawTieRect(x_min,g,b,[-1,-1],ctx) : 0;
 					(touchesRight && touchesTop) ? drawTieRect(x_max,g,b,[1,1],ctx) : 0;
-					*/
-
-					//touchesLeft && touchesBottom ? drawTieRect(x_min,g,b,[-1,-1],ctx) : 0;
-
-					/*if(sorted0[3] > sorted1[3]-b){
-						drawTieRect()
-					}*/
-					//if(sorted[])
-
-
-					/*var di_x1 = edgeThresholds[0][0];
-					var di_y1 = edgeThresholds[1][0];
-					var di_x2 = edgeThresholds[0][1];
-					var di_y2 = edgeThresholds[1][1];
-
-					var boundary_x1 = Math.max(sorted0[0]+sorted0[1]+sorted0[2],sorted1[0]*3);
-					var block_mod = (+1)%3;
-					var block_start = di_x1-block_mod;
-					console.log(di_x1+",    "+block_mod);*/
 				}
 			}
 			function getFinalRoundTips(ctx, g, p){
@@ -904,6 +882,9 @@
 						}
 					}
 				}
+				if(Math.abs((cW-cH+35)-mX) <= 35 && mY >= 660 && mY < 710){
+				    drawTiesOption = !drawTiesOption;
+				}
 				if(!resetClicksYesNo){
 					resetClicks = 0;
 				}
@@ -995,9 +976,9 @@
 				ctx.fillStyle = "#000000";
 				ctx.textAlign = "left";
 				ctx.font = "18px Helvetica";
-				var arr = ["","","","Created by Cary Huang (carykh)"]
+				var arr = ["","","Created by","Cary Huang (carykh)"]
 				for(var i = 0; i < 4; i++){
-					var tx = cW-cH+10;
+					var tx = cW-cH+85;
 					ctx.fillText(arr[i],tx,655+18*i);
 				}
 			}
