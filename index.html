@@ -122,7 +122,7 @@
 				}else{
 					var t = times[highlight[0]][highlight[1]];
 					if(t >= 1){
-						s = timeToText(t);
+						s = timeToText(t,false);
 					}
 				}
 				v.value = s;
@@ -240,9 +240,9 @@
 				ctx.fillRect(10,10,tw,cH-20);
 
 				ctx.fillStyle="#000000";
-				ctx.font = "45px Helvetica";
+				ctx.font = "44px Helvetica";
 				ctx.textAlign = "center";
-				ctx.fillText("Head-to-head ao5 plotter",tableX,60);
+				ctx.fillText("Head-to-head ao5 plotter",tableX,55);
 
 				var topButtons = ["Live time (SPACE)","Click x"+(resetClicksNeeded-resetClicks)+" to reset"]
 				for(var p = 0; p < 2; p++){
@@ -259,7 +259,7 @@
 						ctx.fillRect(b["x"],b["y"],b["w"],b["h"]);
 						ctx.fillStyle = "#000000";
 						ctx.font = b["ts"]+"px Helvetica";
-						var s = (t == 5) ? names[p] : timeToText(times[p][t]);
+						var s = (t == 5) ? names[p] : timeToText(times[p][t],false);
 						ctx.fillText(s,b["x"]+b["w"]/2,b["ty"]);
 					}
 					ctx.font = "33px Helvetica";
@@ -320,11 +320,11 @@
 					for(var i = 0; i < tips.length; i++){
 						lines.push(tips[i]);
 					}
-					lines.push("Get BPA of "+timeToText(BPA[0])+" with a single of "+timeToText(BPA[1])+".");
-					lines.push("Get WPA of "+timeToText(WPA[0])+" with a single of "+timeToText(WPA[1])+".");
+					lines.push("Get BPA of "+timeToText(BPA[0],false)+" with a single of "+timeToText(BPA[1],false)+".");
+					lines.push("Get WPA of "+timeToText(WPA[0],false)+" with a single of "+timeToText(WPA[1],false)+".");
 					if(p == 0){
 						var opp_BPA = getPossibleAverage(1,0);
-						lines.push("("+names[1]+"'s BPA is "+timeToText(opp_BPA[0])+", if they get a "+timeToText(opp_BPA[1])+").");
+						lines.push("("+names[1]+"'s BPA is "+timeToText(opp_BPA[0],false)+", if they get a "+timeToText(opp_BPA[1],false)+").");
 					}
 					return lines;
 				}else if(timeC == 3){
@@ -336,9 +336,9 @@
 						const sorted1 = [...times[1].slice(0, 3)].sort(function(a,b){return a-b});
 						var neededSum = BPA[0]*3-2;
 						var neededSingle = neededSum-sorted1[1]-sorted1[2];
-						lines.push(names[0]+" has a BPA of "+timeToText(BPA[0])+".");
+						lines.push(names[0]+" has a BPA of "+timeToText(BPA[0],false)+".");
 						if(neededSingle >= 1 && neededSingle >= sorted1[0]){
-							lines.push("Guarantee victory early with a "+timeToText(neededSingle)+".");
+							lines.push("Guarantee victory early with a "+timeToText(neededSingle,false)+".");
 						}else{
 							lines.push("You can't guarantee victory on 4th solve.");
 						}
@@ -355,7 +355,7 @@
 						return "???";
 					}
 				}
-				return timeToText(getAverage(p));
+				return timeToText(getAverage(p),false);
 			}
 			function getAverage(p){
 				const sorted = [...times[p]].sort(function(a,b){return a-b});
@@ -481,7 +481,7 @@
 					var appX = xToS(xLine,g);
 					ctx.fillRect(appX-1, g["y"], 2, g["h"]);
 					ctx.textAlign = "left";
-					drawRotatedText(timeToText(xLine),appX-8,g["y"]+g["h"]+14,Math.PI*0.25,"",24,"left","#000000",ctx);
+					drawRotatedText(timeToText(xLine,true),appX-8,g["y"]+g["h"]+14,Math.PI*0.25,"",24,"left","#000000",ctx);
 				}
 			}
 
@@ -494,7 +494,7 @@
 					ctx.fillStyle = "#000000";
 					ctx.textAlign = "right";
 					ctx.font = "24px Helvetica";
-					ctx.fillText(timeToText(yLine),g["x"]-6,appY+7);
+					ctx.fillText(timeToText(yLine,true),g["x"]-6,appY+7);
 				}
 			}
 
@@ -644,16 +644,16 @@
 					if(p == 0){
 						if(touchesBottom){
 							if(!touchesLeft){
-								tips.push("Get "+timeToText(x_min-1)+" to guarantee win.");
+								tips.push("Get "+timeToText(x_min-1,false)+" to guarantee win.");
 							}else{
-								tips.push("Get "+timeToText(x_min+2)+" to guarantee win-or-tie.");
+								tips.push("Get "+timeToText(x_min+2,false)+" to guarantee win-or-tie.");
 							}
 						}
 						if(touchesTop){
 							if(!touchesRight){
-								tips.push("Get "+timeToText(x_max+2)+" to avoid guaranteed loss.");
+								tips.push("Get "+timeToText(x_max+2,false)+" to avoid guaranteed loss.");
 							}else{
-								tips.push("Get "+timeToText(x_max-1)+" to avoid guaranteed loss-or-tie.");
+								tips.push("Get "+timeToText(x_max-1,false)+" to avoid guaranteed loss-or-tie.");
 							}
 						}
 					}else{
@@ -669,9 +669,9 @@
 							var neededSingle = neededSum-sorted1[1]-sorted1[2];
 							var canWin = !(touchesLeft && touchesBottom);
 							if(canWin){
-								tips.push("Get a single of "+timeToText(neededSingle-3)+" to win, "+timeToText(neededSingle)+" to tie.");
+								tips.push("Get a single of "+timeToText(neededSingle-3,false)+" to win, "+timeToText(neededSingle,false)+" to tie.");
 							}else{
-								tips.push("Get a single of "+timeToText(neededSingle)+" to tie.");
+								tips.push("Get a single of "+timeToText(neededSingle,false)+" to tie.");
 							}
 						}
 					}
@@ -746,7 +746,7 @@
 						var textShiftY = appY >= g["y"] ? -12 : 32;
 						ctx.fillText("#"+(i+1),appX+textShiftX,appY+textShiftY);
 						var coorTextShiftY = (i == 4) ? 30 : 20;
-						drawRotatedText(timeToText(times[0][i])+", "+timeToText(times[1][i]),appX,appY+coorTextShiftY,0,"",16,"center",col,ctx);
+						drawRotatedText(timeToText(times[0][i],false)+", "+timeToText(times[1][i],false),appX,appY+coorTextShiftY,0,"",16,"center",col,ctx);
 					}
 				}
 			}
@@ -814,7 +814,7 @@
 				var fac = (sy-g["y"])/g["h"];
 				return (1-Math.min(Math.max(fac,0),1))*g["span"]+g["ymin"];
 			}
-			function timeToText(preN){
+			function timeToText(preN, axisLabel){
 				var n = Math.floor(preN);
 				if(n == DNF_VALUE){
 					return "DNF";
@@ -828,6 +828,9 @@
 					result = (n%digits[digitOn])+separator[digitOn]+result;
 					n = Math.floor(n/digits[digitOn]);
 					digitOn += 1;
+				}
+				if(axisLabel && result.length >= 6 && result.substring(result.length-3) == ".00"){
+				    result = result.substring(0,result.length-3);
 				}
 				return result;
 			}
@@ -974,13 +977,9 @@
 			}
 		function drawCredits(){
 				ctx.fillStyle = "#000000";
-				ctx.textAlign = "left";
+				ctx.textAlign = "right";
 				ctx.font = "18px Helvetica";
-				var arr = ["","","Created by","Cary Huang (carykh)"]
-				for(var i = 0; i < 4; i++){
-					var tx = cW-cH+85;
-					ctx.fillText(arr[i],tx,655+18*i);
-				}
+				ctx.fillText("Created by Cary Huang (carykh)",cW-cH-25,82);
 			}
 		</script>
 		<noscript>
